@@ -4,3 +4,8 @@ g++ -std=c++11 -O3 mali_fft_test.cpp -o mali_fft_test \
 
 $CXX $CXXFLAGS $CPPFLAGS mali_fft_test.cpp -o mali_fft_test \
     $LDFLAGS -lOpenCL -lm -lpthread
+
+    
+./fft_test --correctness-only
+./fft_test --performance-only
+./fft_test --stress

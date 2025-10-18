@@ -1,6 +1,6 @@
 # Makefile for Mali GPU FFT - Ubuntu/Linux x86_64 Native Build
 # This version compiles for your local Ubuntu system for testing
-# 
+#
 # Prerequisites:
 #   sudo apt install opencl-headers ocl-icd-opencl-dev
 #   sudo apt install intel-opencl-icd     # For Intel GPU
@@ -12,37 +12,14 @@
 # ============================================================================
 
 PROJECT = mali_fft
-HOST_SRC = fft_host.cpp
-KERNEL_SRC = mali_fft_optimized.cl
+SRC_DIR = ../src
+HOST_SRC = $(SRC_DIR)/fft_host.cpp
+KERNEL_SRC = $(SRC_DIR)/mali_fft_optimized.cl
+TEST_SRC = $(SRC_DIR)/fft_test.cpp
+VALIDATION_SRC = $(SRC_DIR)/fft_validation.cpp
 TARGET = $(PROJECT)
-
-# Test binary
-TEST_SRC = mali_fft_test.cpp
-TEST_TARGET = $(PROJECT)_test
-
-# Test binary
-TEST_SRC = mali_fft_test.cpp
-TEST_TARGET = $(PROJECT)
-
-# Test binary
-TEST_SRC = mali_fft_test.cpp
-TEST_TARGET = $(PROJECT)_test_test
-
-# Test binary
-TEST_SRC = mali_fft_test.cpp
-TEST_TARGET = $(PROJECT)
-
-# Test binary
-TEST_SRC = mali_fft_test.cpp
-TEST_TARGET = $(PROJECT)_test
-
-# Test binary
-TEST_SRC = mali_fft_test.cpp
-TEST_TARGET = $(PROJECT)
-
-# Test binary
-TEST_SRC = mali_fft_test.cpp
-TEST_TARGET = $(PROJECT)_test_test_test
+TEST_TARGET = fft_test_new
+VALIDATION_TARGET = fft_validation
 
 # Installation directories
 INSTALL_DIR = /usr/local/bin
@@ -95,9 +72,9 @@ LIBS += -lpthread
 # Build Rules
 # ============================================================================
 
-.PHONY: all clean install check-opencl help test
+.PHONY: all clean install check-opencl help test test-correctness test-performance test-stress test-simple
 
-all: check-opencl $(TARGET)
+all: check-opencl $(TARGET) $(TEST_TARGET) $(VALIDATION_TARGET)
 
 # Main target
 $(TARGET): $(HOST_SRC)
@@ -122,6 +99,34 @@ $(TARGET): $(HOST_SRC)
 	else \
 		echo "⚠ WARNING: OpenCL kernel file $(KERNEL_SRC) not found!"; \
 	fi
+
+# Test binary
+$(TEST_TARGET): $(TEST_SRC)
+	@echo "==================================================================="
+	@echo "Building $(TEST_TARGET) for testing and benchmarking"
+	@echo "==================================================================="
+	@if [ ! -f "$(TEST_SRC)" ]; then \
+		echo "ERROR: Test source file $(TEST_SRC) not found!"; \
+		exit 1; \
+	fi
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(TEST_SRC) -o $(TEST_TARGET) $(LIBS)
+	@echo ""
+	@echo "✓ Test suite built: $(TEST_TARGET)"
+	@ls -lh $(TEST_TARGET)
+
+# Validation binary
+$(VALIDATION_TARGET): $(VALIDATION_SRC)
+	@echo "==================================================================="
+	@echo "Building $(VALIDATION_TARGET) for mathematical validation"
+	@echo "==================================================================="
+	@if [ ! -f "$(VALIDATION_SRC)" ]; then \
+		echo "ERROR: Validation source file $(VALIDATION_SRC) not found!"; \
+		exit 1; \
+	fi
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(VALIDATION_SRC) -o $(VALIDATION_TARGET) $(LIBS)
+	@echo ""
+	@echo "✓ Validation suite built: $(VALIDATION_TARGET)"
+	@ls -lh $(VALIDATION_TARGET)
 
 # Stripped version
 $(TARGET).stripped: $(TARGET)
@@ -152,43 +157,9 @@ check-opencl:
 	else \
 		echo "✓ OpenCL library found"; \
 	fi
-	@# Check for OpenCL ICD loader
-	@if [ ! -d "/etc/OpenCL/vendors" ]; then \
-		echo "⚠ Warning: /etc/OpenCL/vendors directory not found"; \
-		echo "  You may need to install GPU-specific ICD:"; \
-		echo "    Intel:  sudo apt install intel-opencl-icd"; \
-		echo "    NVIDIA: sudo apt install nvidia-opencl-icd"; \
-		echo "    AMD:    sudo apt install mesa-opencl-icd"; \
-		echo ""; \
-	fi
-	@# Try to detect OpenCL devices
-	@if command -v clinfo &> /dev/null; then \
-		echo ""; \
-		echo "OpenCL devices detected:"; \
-		clinfo -l || echo "  (none found - install GPU drivers)"; \
-	else \
-		echo ""; \
-		echo "ℹ Tip: Install clinfo to see available OpenCL devices:"; \
-		echo "  sudo apt install clinfo"; \
-	fi
 	@echo ""
 
-
-# Test and benchmark binary
-$(TEST_TARGET): $(TEST_SRC)
-	@echo "==================================================================="
-	@echo "Building $(TEST_TARGET) for testing and benchmarking"
-	@echo "==================================================================="
-	@if [ ! -f "$(TEST_SRC)" ]; then \
-		echo "ERROR: Test source file $(TEST_SRC) not found!"; \
-		exit 1; \
-	fi
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(TEST_SRC) -o $(TEST_TARGET) $(LIBS)
-	@echo ""
-	@echo "✓ Test suite built: $(TEST_TARGET)"
-	@ls -lh $(TEST_TARGET)
-
-# Run all tests (override the simple test target)
+# Run all tests
 test: $(TEST_TARGET)
 	@echo "Running comprehensive test suite..."
 	@if [ ! -f "$(KERNEL_SRC)" ]; then \
@@ -200,6 +171,10 @@ test: $(TEST_TARGET)
 # Run only correctness tests
 test-correctness: $(TEST_TARGET)
 	@echo "Running correctness tests..."
+	@if [ ! -f "$(KERNEL_SRC)" ]; then \
+		echo "ERROR: Kernel file $(KERNEL_SRC) not found!"; \
+		exit 1; \
+	fi
 	./$(TEST_TARGET) --correctness-only
 
 # Run only performance benchmarks
@@ -212,16 +187,10 @@ test-stress: $(TEST_TARGET)
 	@echo "Running stress test (60 seconds)..."
 	./$(TEST_TARGET) --stress
 
-# Quick test with simple program
-test-simple: $(TARGET)
-	@echo "Running simple FFT test..."
-	@if [ ! -f "$(KERNEL_SRC)" ]; then \
-		echo "ERROR: Kernel file $(KERNEL_SRC) not found!"; \
-		exit 1; \
-	fi
-	./$(TARGET)
-
-
+# Run validation tests
+validate: $(VALIDATION_TARGET)
+	@echo "Running mathematical validation tests..."
+	./$(VALIDATION_TARGET)
 
 # Install to system
 install: $(TARGET).stripped
@@ -255,7 +224,7 @@ uninstall:
 # Clean build artifacts
 clean:
 	@echo "Cleaning..."
-	@rm -f $(TARGET) $(TARGET).stripped $(TEST_TARGET) *.o
+	@rm -f $(TARGET) $(TEST_TARGET) $(VALIDATION_TARGET) $(TARGET).stripped *.o *.s
 	@echo "✓ Clean complete"
 
 # Help
@@ -275,8 +244,13 @@ help:
 	@echo "  sudo apt install mesa-opencl-icd       # For AMD GPU"
 	@echo ""
 	@echo "Targets:"
-	@echo "  make              - Build the application"
-	@echo "  make test         - Build and run test"
+	@echo "  make              - Show this help"
+	@echo "  make all          - Build all binaries"
+	@echo "  make test         - Build and run full test suite"
+	@echo "  make test-correctness - Build and run correctness tests only"
+	@echo "  make test-performance - Run performance benchmarks"
+	@echo "  make test-stress  - Run stress test (60 seconds)"
+	@echo "  make validate     - Run mathematical validation suite"
 	@echo "  make clean        - Remove build artifacts"
 	@echo "  make check-opencl - Verify OpenCL installation"
 	@echo "  make install      - Install to system (requires sudo)"
@@ -284,18 +258,20 @@ help:
 	@echo "  make help         - Show this help"
 	@echo ""
 	@echo "Examples:"
-	@echo "  $$ make                    # Build"
-	@echo "  $$ make test               # Build and run"
-	@echo "  $$ ./$(TARGET)             # Run directly"
-	@echo "  $$ sudo make install       # Install system-wide"
+	@echo "  $$ make              # Build all"
+	@echo "  $$ make test         # Build and run full tests"
+	@echo "  $$ make validate     # Run validation suite"
+	@echo "  $$ ./$(TEST_TARGET)         # Run test binary directly"
+	@echo "  $$ ./$(VALIDATION_TARGET)   # Run validation directly"
 	@echo ""
 	@echo "Checking OpenCL:"
 	@echo "  $$ clinfo                  # Show all OpenCL devices"
 	@echo "  $$ clinfo -l               # List devices briefly"
 	@echo ""
-	@echo "Files needed:"
-	@echo "  $(HOST_SRC)  - $$(if [ -f $(HOST_SRC) ]; then echo '✓'; else echo '✗'; fi)"
-	@echo "  $(KERNEL_SRC) - $$(if [ -f $(KERNEL_SRC) ]; then echo '✓'; else echo '✗'; fi)"
+	@echo "Files:"
+	@echo "  Binaries: $(TARGET), $(TEST_TARGET), $(VALIDATION_TARGET)"
+	@echo "  Kernel:   $(KERNEL_SRC)"
+	@echo ""
 
 # Additional development targets
 debug: CXXFLAGS := $(filter-out -O3,$(CXXFLAGS))
@@ -306,8 +282,8 @@ debug: $(TARGET)
 verbose: CXXFLAGS += -v
 verbose: $(TARGET)
 
-asm: $(HOST_SRC)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -S -fverbose-asm $(HOST_SRC) -o $(TARGET).s
-	@echo "Assembly output: $(TARGET).s"
+asm: $(TEST_SRC)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -S -fverbose-asm $(TEST_SRC) -o $(TEST_TARGET).s
+	@echo "Assembly output: $(TEST_TARGET).s"
 
-.PHONY: debug verbose asm uninstall test test-correctness test-performance test-stress test-simple test test-correctness test-performance test-stress test-simple test test-correctness test-performance test-stress test-simple
+.PHONY: debug verbose asm

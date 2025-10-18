@@ -1,0 +1,62 @@
+# Build artifacts
+build/fft_*
+build/mali_fft*
+build/*.o
+build/*.s
+build/*.stripped
+
+# Generated binaries
+fft_test_new
+fft_validation
+*.exe
+
+# Development artifacts
+*.o
+*.so
+*.a
+*.dylib
+*.dSYM/
+*.su
+*.gch
+*.pch
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# CMake
+CMakeCache.txt
+CMakeLists.txt.user
+CMakeFiles/
+cmake_install.cmake
+
+# Compiler output
+*.asm
+*.ll
+
+# OS generated files
+Thumbs.db
+.Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Logs
+*.log
+
+# Build directories (if created)
+bin/
+lib/
+
+# Keep important files
+!build/Makefile*
+!src/
+!docs/
+!include/
