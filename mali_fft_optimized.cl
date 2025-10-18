@@ -252,18 +252,20 @@ __kernel void radix_8(__global float2* input,
 // DIGIT REVERSE (BIT REVERSAL) KERNEL
 // ============================================================================
 
-__kernel void digit_reverse(__global float2* input, 
-                           __global float2* output, 
+__kernel void digit_reverse(__global float* input,
+                           __global float* output,
                            __global uint* idx_digit_reverse)
 {
-    // Each work-item handles a single complex value
+    // Each work-item handles a single complex value (2 floats: real and imaginary)
     const uint n = get_global_id(0);
-    
+
     // Get digit-reverse index
     const uint idx = idx_digit_reverse[n];
-    
-    // Copy value to digit-reversed position
-    output[n] = input[idx];
+
+    // Copy complex value (2 floats) to digit-reversed position
+    // input[2*n] and input[2*n+1] go to output[2*idx] and output[2*idx+1]
+    output[2 * idx] = input[2 * n];
+    output[2 * idx + 1] = input[2 * n + 1];
 }
 
 // ============================================================================
