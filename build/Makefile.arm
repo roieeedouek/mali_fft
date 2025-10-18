@@ -16,8 +16,10 @@
 PROJECT = mali_fft_arm
 
 # Source files
-HOST_SRC = fft_host.cpp
-KERNEL_SRC = mali_fft_optimized.cl
+SRC_DIR = ../src
+HOST_SRC = $(SRC_DIR)/fft_host.cpp
+KERNEL_SRC = $(SRC_DIR)/mali_fft_optimized.cl
+TEST_SRC = $(SRC_DIR)/fft_test.cpp
 
 # Output binary
 TARGET = $(PROJECT)
@@ -105,6 +107,10 @@ $(TARGET): $(HOST_SRC) $(KERNEL_SRC)
 	@echo "LDFLAGS  : $(LDFLAGS)"
 	@echo "LIBS     : $(LIBS)"
 	@echo "==================================================================="
+	@if [ ! -f "$(HOST_SRC)" ]; then \
+		echo "ERROR: Source file $(HOST_SRC) not found!"; \
+		exit 1; \
+	fi
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(HOST_SRC) -o $(TARGET) $(LDFLAGS) $(LIBS)
 	@echo ""
 	@echo "Build successful! Binary: $(TARGET)"
@@ -259,4 +265,44 @@ package: $(TARGET).stripped $(KERNEL_SRC)
 	@echo "Deployment package created: $(PROJECT)_deploy.tar.gz"
 	@ls -lh $(PROJECT)_deploy.tar.gz
 
-.PHONY: verbose debug asm ldd-check size package
+# Test and benchmark binary
+TEST_TARGET = fft_test_arm
+
+$(TEST_TARGET): $(TEST_SRC) $(KERNEL_SRC)
+	@echo "==================================================================="
+	@echo "Building $(TEST_TARGET) for ARM testing and benchmarking"
+	@echo "==================================================================="
+	@if [ ! -f "$(TEST_SRC)" ]; then \
+		echo "ERROR: Test source file $(TEST_SRC) not found!"; \
+		exit 1; \
+	fi
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(TEST_SRC) -o $(TEST_TARGET) $(LDFLAGS) $(LIBS)
+	@echo ""
+	@echo "✓ Test suite built: $(TEST_TARGET)"
+	@ls -lh $(TEST_TARGET)
+
+# Run all tests
+test: $(TEST_TARGET)
+	@echo "Running test suite..."
+	@if [ ! -f "$(KERNEL_SRC)" ]; then \
+		echo "ERROR: Kernel file $(KERNEL_SRC) not found!"; \
+		exit 1; \
+	fi
+	./$(TEST_TARGET)
+
+# Run only correctness tests
+test-correctness: $(TEST_TARGET)
+	@echo "Running ARM correctness tests..."
+	./$(TEST_TARGET) --correctness-only
+
+# Run only performance benchmarks
+test-performance: $(TEST_TARGET)
+	@echo "Running ARM performance benchmarks..."
+	./$(TEST_TARGET) --performance-only
+
+# Run stress test
+test-stress: $(TEST_TARGET)
+	@echo "Running ARM stress test (60 seconds)..."
+	./$(TEST_TARGET) --stress
+
+.PHONY: verbose debug asm ldd-check size package test test-correctness test-performance test-stress
