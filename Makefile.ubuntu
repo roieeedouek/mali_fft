@@ -1,0 +1,313 @@
+# Makefile for Mali GPU FFT - Ubuntu/Linux x86_64 Native Build
+# This version compiles for your local Ubuntu system for testing
+# 
+# Prerequisites:
+#   sudo apt install opencl-headers ocl-icd-opencl-dev
+#   sudo apt install intel-opencl-icd     # For Intel GPU
+#   sudo apt install nvidia-opencl-icd    # For NVIDIA GPU
+#   sudo apt install mesa-opencl-icd      # For AMD GPU
+
+# ============================================================================
+# Configuration
+# ============================================================================
+
+PROJECT = mali_fft
+HOST_SRC = fft_host.cpp
+KERNEL_SRC = mali_fft_optimized.cl
+TARGET = $(PROJECT)
+
+# Test binary
+TEST_SRC = mali_fft_test.cpp
+TEST_TARGET = $(PROJECT)_test
+
+# Test binary
+TEST_SRC = mali_fft_test.cpp
+TEST_TARGET = $(PROJECT)
+
+# Test binary
+TEST_SRC = mali_fft_test.cpp
+TEST_TARGET = $(PROJECT)_test_test
+
+# Test binary
+TEST_SRC = mali_fft_test.cpp
+TEST_TARGET = $(PROJECT)
+
+# Test binary
+TEST_SRC = mali_fft_test.cpp
+TEST_TARGET = $(PROJECT)_test
+
+# Test binary
+TEST_SRC = mali_fft_test.cpp
+TEST_TARGET = $(PROJECT)
+
+# Test binary
+TEST_SRC = mali_fft_test.cpp
+TEST_TARGET = $(PROJECT)_test_test_test
+
+# Installation directories
+INSTALL_DIR = /usr/local/bin
+KERNEL_INSTALL_DIR = /usr/local/share/opencl/kernels
+
+# ============================================================================
+# Compiler Configuration for Native Build
+# ============================================================================
+
+CXX = g++
+STRIP = strip
+
+# ============================================================================
+# Compiler Flags
+# ============================================================================
+
+# C++ standard
+CXXFLAGS = -std=c++11
+
+# Optimization flags
+CXXFLAGS += -O3 -march=native
+
+# Enable vectorization
+CXXFLAGS += -ftree-vectorize -ffast-math
+
+# Debug symbols
+CXXFLAGS += -g
+
+# Warnings
+CXXFLAGS += -Wall -Wextra -Wpedantic
+
+# OpenCL version
+CPPFLAGS = -DCL_TARGET_OPENCL_VERSION=200
+CPPFLAGS += -D_USE_MATH_DEFINES
+
+# ============================================================================
+# Linker Flags
+# ============================================================================
+
+# OpenCL library
+LIBS = -lOpenCL
+
+# Math library
+LIBS += -lm
+
+# Threading library
+LIBS += -lpthread
+
+# ============================================================================
+# Build Rules
+# ============================================================================
+
+.PHONY: all clean install check-opencl help test
+
+all: check-opencl $(TARGET)
+
+# Main target
+$(TARGET): $(HOST_SRC)
+	@echo "==================================================================="
+	@echo "Building $(TARGET) for Ubuntu x86_64"
+	@echo "==================================================================="
+	@echo "CXX      : $(CXX)"
+	@echo "CXXFLAGS : $(CXXFLAGS)"
+	@echo "LIBS     : $(LIBS)"
+	@echo "==================================================================="
+	@if [ ! -f "$(HOST_SRC)" ]; then \
+		echo "ERROR: Source file $(HOST_SRC) not found!"; \
+		exit 1; \
+	fi
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(HOST_SRC) -o $(TARGET) $(LIBS)
+	@echo ""
+	@echo "✓ Build successful! Binary: $(TARGET)"
+	@ls -lh $(TARGET)
+	@echo ""
+	@if [ -f "$(KERNEL_SRC)" ]; then \
+		echo "✓ OpenCL kernel file found: $(KERNEL_SRC)"; \
+	else \
+		echo "⚠ WARNING: OpenCL kernel file $(KERNEL_SRC) not found!"; \
+	fi
+
+# Stripped version
+$(TARGET).stripped: $(TARGET)
+	@cp $(TARGET) $(TARGET).stripped
+	$(STRIP) $(TARGET).stripped
+	@echo "Stripped binary size:"
+	@ls -lh $(TARGET).stripped
+
+# Check OpenCL installation
+check-opencl:
+	@echo "Checking OpenCL installation..."
+	@echo ""
+	@# Check for OpenCL headers
+	@if [ ! -f "/usr/include/CL/cl.h" ]; then \
+		echo "✗ OpenCL headers not found!"; \
+		echo "  Install with: sudo apt install opencl-headers ocl-icd-opencl-dev"; \
+		echo ""; \
+		exit 1; \
+	else \
+		echo "✓ OpenCL headers found"; \
+	fi
+	@# Check for OpenCL library
+	@if ! ldconfig -p | grep -q libOpenCL.so; then \
+		echo "✗ OpenCL library not found!"; \
+		echo "  Install with: sudo apt install ocl-icd-opencl-dev"; \
+		echo ""; \
+		exit 1; \
+	else \
+		echo "✓ OpenCL library found"; \
+	fi
+	@# Check for OpenCL ICD loader
+	@if [ ! -d "/etc/OpenCL/vendors" ]; then \
+		echo "⚠ Warning: /etc/OpenCL/vendors directory not found"; \
+		echo "  You may need to install GPU-specific ICD:"; \
+		echo "    Intel:  sudo apt install intel-opencl-icd"; \
+		echo "    NVIDIA: sudo apt install nvidia-opencl-icd"; \
+		echo "    AMD:    sudo apt install mesa-opencl-icd"; \
+		echo ""; \
+	fi
+	@# Try to detect OpenCL devices
+	@if command -v clinfo &> /dev/null; then \
+		echo ""; \
+		echo "OpenCL devices detected:"; \
+		clinfo -l || echo "  (none found - install GPU drivers)"; \
+	else \
+		echo ""; \
+		echo "ℹ Tip: Install clinfo to see available OpenCL devices:"; \
+		echo "  sudo apt install clinfo"; \
+	fi
+	@echo ""
+
+
+# Test and benchmark binary
+$(TEST_TARGET): $(TEST_SRC)
+	@echo "==================================================================="
+	@echo "Building $(TEST_TARGET) for testing and benchmarking"
+	@echo "==================================================================="
+	@if [ ! -f "$(TEST_SRC)" ]; then \
+		echo "ERROR: Test source file $(TEST_SRC) not found!"; \
+		exit 1; \
+	fi
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(TEST_SRC) -o $(TEST_TARGET) $(LIBS)
+	@echo ""
+	@echo "✓ Test suite built: $(TEST_TARGET)"
+	@ls -lh $(TEST_TARGET)
+
+# Run all tests (override the simple test target)
+test: $(TEST_TARGET)
+	@echo "Running comprehensive test suite..."
+	@if [ ! -f "$(KERNEL_SRC)" ]; then \
+		echo "ERROR: Kernel file $(KERNEL_SRC) not found!"; \
+		exit 1; \
+	fi
+	./$(TEST_TARGET)
+
+# Run only correctness tests
+test-correctness: $(TEST_TARGET)
+	@echo "Running correctness tests..."
+	./$(TEST_TARGET) --correctness-only
+
+# Run only performance benchmarks
+test-performance: $(TEST_TARGET)
+	@echo "Running performance benchmarks..."
+	./$(TEST_TARGET) --performance-only
+
+# Run stress test
+test-stress: $(TEST_TARGET)
+	@echo "Running stress test (60 seconds)..."
+	./$(TEST_TARGET) --stress
+
+# Quick test with simple program
+test-simple: $(TARGET)
+	@echo "Running simple FFT test..."
+	@if [ ! -f "$(KERNEL_SRC)" ]; then \
+		echo "ERROR: Kernel file $(KERNEL_SRC) not found!"; \
+		exit 1; \
+	fi
+	./$(TARGET)
+
+
+
+# Install to system
+install: $(TARGET).stripped
+	@echo "Installing $(TARGET)..."
+	@if [ "$$(id -u)" -ne 0 ]; then \
+		echo "ERROR: Installation requires root privileges"; \
+		echo "Run: sudo make install"; \
+		exit 1; \
+	fi
+	install -d $(INSTALL_DIR)
+	install -d $(KERNEL_INSTALL_DIR)
+	install -m 0755 $(TARGET).stripped $(INSTALL_DIR)/$(TARGET)
+	@if [ -f "$(KERNEL_SRC)" ]; then \
+		install -m 0644 $(KERNEL_SRC) $(KERNEL_INSTALL_DIR)/; \
+	fi
+	@echo "✓ Installed successfully"
+	@echo "  Binary: $(INSTALL_DIR)/$(TARGET)"
+	@echo "  Kernel: $(KERNEL_INSTALL_DIR)/$(KERNEL_SRC)"
+
+# Uninstall from system
+uninstall:
+	@if [ "$$(id -u)" -ne 0 ]; then \
+		echo "ERROR: Uninstallation requires root privileges"; \
+		echo "Run: sudo make uninstall"; \
+		exit 1; \
+	fi
+	rm -f $(INSTALL_DIR)/$(TARGET)
+	rm -f $(KERNEL_INSTALL_DIR)/$(KERNEL_SRC)
+	@echo "✓ Uninstalled"
+
+# Clean build artifacts
+clean:
+	@echo "Cleaning..."
+	@rm -f $(TARGET) $(TARGET).stripped $(TEST_TARGET) *.o
+	@echo "✓ Clean complete"
+
+# Help
+help:
+	@echo "Mali GPU FFT - Ubuntu Native Build"
+	@echo "==================================="
+	@echo ""
+	@echo "Prerequisites:"
+	@echo "  sudo apt update"
+	@echo "  sudo apt install build-essential"
+	@echo "  sudo apt install opencl-headers ocl-icd-opencl-dev"
+	@echo "  sudo apt install clinfo  # Optional: for checking OpenCL devices"
+	@echo ""
+	@echo "  # Install GPU-specific ICD (choose one):"
+	@echo "  sudo apt install intel-opencl-icd      # For Intel GPU"
+	@echo "  sudo apt install nvidia-opencl-icd     # For NVIDIA GPU"
+	@echo "  sudo apt install mesa-opencl-icd       # For AMD GPU"
+	@echo ""
+	@echo "Targets:"
+	@echo "  make              - Build the application"
+	@echo "  make test         - Build and run test"
+	@echo "  make clean        - Remove build artifacts"
+	@echo "  make check-opencl - Verify OpenCL installation"
+	@echo "  make install      - Install to system (requires sudo)"
+	@echo "  make uninstall    - Remove from system (requires sudo)"
+	@echo "  make help         - Show this help"
+	@echo ""
+	@echo "Examples:"
+	@echo "  $$ make                    # Build"
+	@echo "  $$ make test               # Build and run"
+	@echo "  $$ ./$(TARGET)             # Run directly"
+	@echo "  $$ sudo make install       # Install system-wide"
+	@echo ""
+	@echo "Checking OpenCL:"
+	@echo "  $$ clinfo                  # Show all OpenCL devices"
+	@echo "  $$ clinfo -l               # List devices briefly"
+	@echo ""
+	@echo "Files needed:"
+	@echo "  $(HOST_SRC)  - $$(if [ -f $(HOST_SRC) ]; then echo '✓'; else echo '✗'; fi)"
+	@echo "  $(KERNEL_SRC) - $$(if [ -f $(KERNEL_SRC) ]; then echo '✓'; else echo '✗'; fi)"
+
+# Additional development targets
+debug: CXXFLAGS := $(filter-out -O3,$(CXXFLAGS))
+debug: CXXFLAGS += -O0 -DDEBUG
+debug: $(TARGET)
+	@echo "✓ Debug build complete"
+
+verbose: CXXFLAGS += -v
+verbose: $(TARGET)
+
+asm: $(HOST_SRC)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -S -fverbose-asm $(HOST_SRC) -o $(TARGET).s
+	@echo "Assembly output: $(TARGET).s"
+
+.PHONY: debug verbose asm uninstall test test-correctness test-performance test-stress test-simple test test-correctness test-performance test-stress test-simple test test-correctness test-performance test-stress test-simple
